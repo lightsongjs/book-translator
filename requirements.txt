@@ -1,0 +1,7 @@
+click
+rich
+ebooklib
+beautifulsoup4
+pandas
+mailjet_rest
+python-dotenv
