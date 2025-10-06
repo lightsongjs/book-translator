@@ -90,6 +90,18 @@ else
     fi
 fi
 
+# Combine all chapters into full book
+echo ""
+echo -e "${BLUE}Actualizez cartea completă cu toate capitolele...${NC}"
+.venv/bin/python book_translator.py --combine-all-chapters
+
+if [ $? -ne 0 ]; then
+    echo -e "${RED}Eroare la combinarea cărții complete${NC}"
+    exit 1
+fi
+
+echo ""
+
 # Ask if user wants to send to Kindle
 echo ""
 echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"

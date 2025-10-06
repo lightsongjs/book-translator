@@ -139,6 +139,22 @@ if !RATIO_OK!==0 (
     )
 )
 
+REM Combine all chapters into full book
+echo.
+echo Actualizez cartea completa cu toate capitolele...
+if exist .venv\Scripts\python.exe (
+    .venv\Scripts\python.exe book_translator.py --combine-all-chapters
+) else (
+    python book_translator.py --combine-all-chapters
+)
+
+if errorlevel 1 (
+    echo ERROR: Eroare la combinarea cartii complete
+    exit /b 1
+)
+
+echo.
+
 REM Ask if user wants to send to Kindle
 set /p SEND_KINDLE="Trimitem pe Kindle? (y/n): "
 

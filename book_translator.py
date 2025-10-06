@@ -1773,9 +1773,19 @@ class BookTranslator:
             return int(match.group(1)) if match else 999
         
         ro_chapters.sort(key=extract_chapter_num)
-        
+
         console.print(f"[green]Found {len(ro_chapters)} translated chapters to include in EPUB[/green]")
-        
+
+        # Show which chapters will be included
+        console.print(f"[cyan]Chapters to include:[/cyan]")
+        for ro_file in ro_chapters:
+            # Extract chapter number from filename
+            chapter_num_match = re.search(r'CHAPTER[_\s]+(\d+)', ro_file.name, re.IGNORECASE)
+            if chapter_num_match:
+                console.print(f"  • Chapter {chapter_num_match.group(1)}: {ro_file.name}")
+            else:
+                console.print(f"  • {ro_file.name}")
+
         # Create EPUB
         book = epub.EpubBook()
         
@@ -1822,11 +1832,21 @@ class BookTranslator:
         output_path = self.dirs['05_ro_full_epub'] / output_filename
         
         epub.write_epub(str(output_path), book, {})
-        
-        console.print(f"\n[green]Romanian EPUB created![/green]")
+
+        console.print(f"\n[green]✅ Romanian EPUB created![/green]")
         console.print(f"OK Included {len(chapters)} chapters")
         console.print(f"OK Saved: {output_filename}")
         console.print(f"OK Location: {output_path}")
+
+        # Verify EPUB file was created and show file size
+        if output_path.exists():
+            file_size_mb = output_path.stat().st_size / 1024 / 1024
+            console.print(f"OK File size: {file_size_mb:.2f} MB")
+            console.print(f"[green]✅ Verification: EPUB file successfully created and saved[/green]")
+            return True
+        else:
+            console.print(f"[red]ERROR: EPUB file was not created[/red]")
+            return False
 
     def quick_check(self, chapter_number: int):
         """Quick check without spoilers."""
@@ -2078,7 +2098,10 @@ class BookTranslator:
         
         # Step 5: Build alternating file list
         files_to_open = self._build_alternating_file_list(chapter_file, en_segments, ro_segments)
-        
+
+        # Step 5.5: Show preview of first 3 lines and last line
+        self._show_chapter_preview(chapter_file, sequence_number)
+
         # Step 6: Open in Sublime Text
         return self._open_files_in_sublime(files_to_open, chapter_number)
 
@@ -2183,13 +2206,67 @@ class BookTranslator:
     def _build_alternating_file_list(self, chapter_file, en_segments, ro_segments):
         """Build file list in alternating EN/RO order."""
         files = [chapter_file]  # Start with complete chapter
-        
+
         # Add alternating segments
         for en_seg, ro_seg in zip(en_segments, ro_segments):
             files.append(en_seg)
             files.append(ro_seg)
-            
+
         return files
+
+    def _show_chapter_preview(self, chapter_file, sequence_number):
+        """Show preview of first 3 lines and last line from EN and RO chapters."""
+        try:
+            console.print("\n[cyan]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/cyan]")
+            console.print("[cyan]📄 Chapter Preview:[/cyan]")
+            console.print("[cyan]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/cyan]\n")
+
+            # Show English preview
+            try:
+                with open(chapter_file, 'r', encoding='utf-8') as f:
+                    en_lines = [line.rstrip() for line in f.readlines() if line.strip()]
+
+                console.print("[blue]English (first 3 lines):[/blue]")
+                for i, line in enumerate(en_lines[:3], 1):
+                    preview = line[:100] + "..." if len(line) > 100 else line
+                    console.print(f"  {i}. {preview}")
+
+                if len(en_lines) > 3:
+                    console.print(f"\n[blue]English (last line):[/blue]")
+                    last_line = en_lines[-1][:100] + "..." if len(en_lines[-1]) > 100 else en_lines[-1]
+                    console.print(f"  {len(en_lines)}. {last_line}")
+            except Exception as e:
+                console.print(f"[yellow]Could not read English file preview: {e}[/yellow]")
+
+            # Find and show Romanian chapter preview
+            console.print("\n")
+            try:
+                # Find Romanian chapter file in 04_ro_chapters
+                ro_filename = chapter_file.name.replace('.md', '_ro.md')
+                ro_chapter_file = self.dirs['04_ro_chapters'] / ro_filename
+
+                if ro_chapter_file.exists():
+                    with open(ro_chapter_file, 'r', encoding='utf-8') as f:
+                        ro_lines = [line.rstrip() for line in f.readlines() if line.strip()]
+
+                    console.print("[green]Romanian (first 3 lines):[/green]")
+                    for i, line in enumerate(ro_lines[:3], 1):
+                        preview = line[:100] + "..." if len(line) > 100 else line
+                        console.print(f"  {i}. {preview}")
+
+                    if len(ro_lines) > 3:
+                        console.print(f"\n[green]Romanian (last line):[/green]")
+                        last_line = ro_lines[-1][:100] + "..." if len(ro_lines[-1]) > 100 else ro_lines[-1]
+                        console.print(f"  {len(ro_lines)}. {last_line}")
+                else:
+                    console.print("[yellow]Romanian chapter not yet translated[/yellow]")
+            except Exception as e:
+                console.print(f"[yellow]Could not read Romanian file preview: {e}[/yellow]")
+
+            console.print("\n[cyan]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/cyan]\n")
+
+        except Exception as e:
+            console.print(f"[yellow]Could not show preview: {e}[/yellow]")
 
     def _open_files_in_sublime(self, files_to_open, chapter_number):
         """Open files in Sublime Text with proper tab order."""
@@ -2234,8 +2311,38 @@ class BookTranslator:
             # Open all files in Sublime Text
             subprocess.run([sublime_cmd] + file_paths, check=True)
             console.print(f"[green]Chapter {chapter_number} opened in Sublime Text with alternating EN/RO tabs[/green]")
+
+            # Copy prompt.md to clipboard
+            try:
+                prompt_file = Path('prompt.md')
+                if prompt_file.exists():
+                    prompt_content = prompt_file.read_text(encoding='utf-8')
+
+                    # Copy to clipboard using Windows clip.exe
+                    if platform.system() == "Windows":
+                        process = subprocess.Popen(['clip'], stdin=subprocess.PIPE, shell=True)
+                        process.communicate(input=prompt_content.encode('utf-8'))
+                        console.print(f"[green]✅ prompt.md copied to clipboard[/green]")
+                    else:
+                        # For Linux/Mac, try xclip or pbcopy
+                        try:
+                            subprocess.run(['xclip', '-selection', 'clipboard'],
+                                         input=prompt_content.encode('utf-8'), check=True)
+                            console.print(f"[green]✅ prompt.md copied to clipboard[/green]")
+                        except FileNotFoundError:
+                            try:
+                                subprocess.run(['pbcopy'],
+                                             input=prompt_content.encode('utf-8'), check=True)
+                                console.print(f"[green]✅ prompt.md copied to clipboard[/green]")
+                            except FileNotFoundError:
+                                console.print(f"[yellow]Clipboard utility not found (install xclip or pbcopy)[/yellow]")
+                else:
+                    console.print(f"[yellow]prompt.md not found, skipping clipboard copy[/yellow]")
+            except Exception as e:
+                console.print(f"[yellow]Could not copy prompt.md to clipboard: {e}[/yellow]")
+
             return True
-            
+
         except subprocess.CalledProcessError as e:
             console.print(f"[red]Error opening Sublime Text: {e}[/red]")
             return self._open_files_with_default_editor(files_to_open, chapter_number)
@@ -2265,6 +2372,36 @@ class BookTranslator:
                 
         if success_count > 0:
             console.print(f"[green]Opened {success_count}/{len(files_to_open)} files successfully[/green]")
+
+            # Copy prompt.md to clipboard
+            try:
+                prompt_file = Path('prompt.md')
+                if prompt_file.exists():
+                    prompt_content = prompt_file.read_text(encoding='utf-8')
+
+                    # Copy to clipboard using Windows clip.exe
+                    if platform.system() == "Windows":
+                        process = subprocess.Popen(['clip'], stdin=subprocess.PIPE, shell=True)
+                        process.communicate(input=prompt_content.encode('utf-8'))
+                        console.print(f"[green]✅ prompt.md copied to clipboard[/green]")
+                    else:
+                        # For Linux/Mac, try xclip or pbcopy
+                        try:
+                            subprocess.run(['xclip', '-selection', 'clipboard'],
+                                         input=prompt_content.encode('utf-8'), check=True)
+                            console.print(f"[green]✅ prompt.md copied to clipboard[/green]")
+                        except FileNotFoundError:
+                            try:
+                                subprocess.run(['pbcopy'],
+                                             input=prompt_content.encode('utf-8'), check=True)
+                                console.print(f"[green]✅ prompt.md copied to clipboard[/green]")
+                            except FileNotFoundError:
+                                console.print(f"[yellow]Clipboard utility not found (install xclip or pbcopy)[/yellow]")
+                else:
+                    console.print(f"[yellow]prompt.md not found, skipping clipboard copy[/yellow]")
+            except Exception as e:
+                console.print(f"[yellow]Could not copy prompt.md to clipboard: {e}[/yellow]")
+
             return True
         return False
 
@@ -2483,7 +2620,49 @@ class BookTranslator:
                     f.write("<!-- Translation goes here -->\n\n")
                 files_to_open.append(str(ro_chapter_file))
                 console.print(f"[yellow]Created placeholder Romanian chapter: {ro_chapter_file.name}[/yellow]")
-            
+
+            # Show preview of first 3 lines and last line from both files
+            console.print("\n[cyan]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/cyan]")
+            console.print("[cyan]📄 File Preview:[/cyan]")
+            console.print("[cyan]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/cyan]\n")
+
+            # Show English preview
+            try:
+                with open(en_chapter_file, 'r', encoding='utf-8') as f:
+                    en_lines = [line.rstrip() for line in f.readlines() if line.strip()]
+
+                console.print("[blue]English (first 3 lines):[/blue]")
+                for i, line in enumerate(en_lines[:3], 1):
+                    preview = line[:100] + "..." if len(line) > 100 else line
+                    console.print(f"  {i}. {preview}")
+
+                if len(en_lines) > 3:
+                    console.print(f"\n[blue]English (last line):[/blue]")
+                    last_line = en_lines[-1][:100] + "..." if len(en_lines[-1]) > 100 else en_lines[-1]
+                    console.print(f"  {len(en_lines)}. {last_line}")
+            except Exception as e:
+                console.print(f"[yellow]Could not read English file preview: {e}[/yellow]")
+
+            # Show Romanian preview
+            console.print("\n")
+            try:
+                with open(ro_chapter_file, 'r', encoding='utf-8') as f:
+                    ro_lines = [line.rstrip() for line in f.readlines() if line.strip()]
+
+                console.print("[green]Romanian (first 3 lines):[/green]")
+                for i, line in enumerate(ro_lines[:3], 1):
+                    preview = line[:100] + "..." if len(line) > 100 else line
+                    console.print(f"  {i}. {preview}")
+
+                if len(ro_lines) > 3:
+                    console.print(f"\n[green]Romanian (last line):[/green]")
+                    last_line = ro_lines[-1][:100] + "..." if len(ro_lines[-1]) > 100 else ro_lines[-1]
+                    console.print(f"  {len(ro_lines)}. {last_line}")
+            except Exception as e:
+                console.print(f"[yellow]Could not read Romanian file preview: {e}[/yellow]")
+
+            console.print("\n[cyan]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/cyan]\n")
+
             # Open both files in Sublime Text
             if files_to_open:
                 import subprocess
@@ -2684,8 +2863,17 @@ class BookTranslator:
             }
             content_type = content_types.get(extension, 'application/octet-stream')
 
-            # Get filename
+            # Get filename - extract chapter number if it's a chapter file
             filename = file_path.name
+
+            # Check if this is a chapter file (e.g., "51_CHAPTER_49_ro.md")
+            chapter_match = re.search(r'CHAPTER[_\s]+(\d+)', file_path.stem, re.IGNORECASE)
+            if chapter_match:
+                chapter_num = chapter_match.group(1)
+                # Use book_name from config + chapter number
+                base_filename = f"{book_name} - {chapter_num}"
+                # Keep the extension from the converted file (.txt or .epub)
+                filename = base_filename + extension
 
             # Initialize Mailjet client
             mailjet = Client(

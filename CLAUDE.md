@@ -3,6 +3,13 @@
 ## Overview
 A Python-based system that translates EPUB books from English to Romanian. The system splits books into chapters and segments, manages translation workflow, tracks progress, and reassembles translated content.
 
+## Recent Updates (2025-10-06)
+- **Auto-clipboard copy**: `prompt.md` automatically copied to clipboard when opening chapters
+- **Preview enhancement**: Shows first 3 lines + last line from EN/RO chapters before opening
+- **Smart Kindle filenames**: Chapter files sent as "BookName - ChapterNum.txt" (e.g., "MS7 - 49.txt")
+- **Auto EPUB update**: `--combine-all-chapters` runs automatically after verification in workflow
+- **EPUB verification**: Shows chapter list, file size, and confirms successful creation
+
 ## Project Structure
 
 ```
@@ -226,21 +233,29 @@ translate_next.bat
 
 **What it does:**
 1. Auto-detects next chapter to translate (highest + 1)
-2. Opens chapter for editing with `--open-chapter`
-3. Waits for you to finish translation (press any key)
-4. Auto-combines segments with `--combine-chapter`
-5. Auto-verifies translation:
+2. Shows preview: first 3 lines + last line from EN/RO chapters
+3. Opens chapter for editing with `--open-chapter`
+4. Copies `prompt.md` to clipboard automatically
+5. Waits for you to finish translation (press any key)
+6. Auto-combines segments with `--combine-chapter`
+7. Auto-verifies translation:
    - Shows line counts (EN vs RO)
    - Checks ratio (0.7-1.3 acceptable range)
    - If ratio fails: offers to open `--compare` for side-by-side review
-6. Asks: "Trimitem pe Kindle? (y/n)"
-7. If yes: converts MD → TXT and sends to Kindle
-8. Clean, minimal output - only essential info
+8. Updates full book with `--combine-all-chapters`
+   - Shows list of all chapters included
+   - Verifies EPUB creation and file size
+9. Asks: "Trimitem pe Kindle? (y/n)"
+10. If yes: converts MD → TXT and sends to Kindle as "BookName - XX.txt"
 
 **Features:**
 - ✅ Automatic chapter detection
+- ✅ Chapter preview before opening
+- ✅ Auto clipboard copy of translation prompt
 - ✅ Ratio validation (warns if outside 0.7-1.3)
 - ✅ Optional file comparison on error
+- ✅ Full book EPUB auto-update after each chapter
+- ✅ Smart Kindle filenames (e.g., "MS7 - 49.txt")
 - ✅ MD files auto-converted to TXT for Kindle
 - ✅ Temp files cleaned up automatically
 - ✅ UTF-8 support for Romanian characters (ă, î, ș, ț, â)
